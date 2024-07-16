@@ -97,6 +97,6 @@ jobs:
             if [ -z "${pkg:-}" ]; then
               break
             fi
-            echo "pushing ${{ github.repository }}/${pkg}"
-            helm push "${pkg}" oci://public.ecr.aws/${REGISTRY_ALIAS}/${{ github.repository }}
+            echo "pushing ${{ github.repository }} and pkg ${pkg}"
+            helm push "${pkg}" oci://public.ecr.aws/${REGISTRY_ALIAS}
           done
