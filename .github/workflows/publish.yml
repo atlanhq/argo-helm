@@ -101,5 +101,5 @@ jobs:
               break
             fi
             echo "pushing ${{ github.repository }} and pkg ${pkg}"
-            helm push "${{ github.repository }}/${pkg}" oci://024630551114.dkr.ecr.us-east-1.amazonaws.com
+            helm push "${pkg}" oci://024630551114.dkr.ecr.us-east-1.amazonaws.com
           done
