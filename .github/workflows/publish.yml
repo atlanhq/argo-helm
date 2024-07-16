@@ -72,12 +72,12 @@ jobs:
       #     PGP_PRIVATE_KEY: "${{ secrets.PGP_PRIVATE_KEY }}"
       #     PGP_PASSPHRASE: "${{ secrets.PGP_PASSPHRASE }}"
 
-      - name: Run chart-releaser
-        uses: helm/chart-releaser-action@be16258da8010256c6e82849661221415f031968 # v1.5.0
-        with:
-          config: "./.github/configs/cr.yaml"
-        env:
-          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+      # - name: Run chart-releaser
+      #   uses: helm/chart-releaser-action@be16258da8010256c6e82849661221415f031968 # v1.5.0
+      #   with:
+      #     config: "./.github/configs/cr.yaml"
+      #   env:
+      #     CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 
       # - name: Login to GHCR
       #   uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
@@ -91,8 +91,9 @@ jobs:
           REGISTRY: ${{ steps.login-ecr-public.outputs.registry }}
           REGISTRY_ALIAS: f1l2l1f6
         run: |
+          helm package charts/argo-workflows
           shopt -s nullglob
-          for pkg in .cr-release-packages/*.tgz; do
+          for pkg in *.tgz; do
             if [ -z "${pkg:-}" ]; then
               break
             fi
