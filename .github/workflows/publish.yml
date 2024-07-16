@@ -4,15 +4,16 @@ on:
   push:
     branches:
       - main
-    paths:
-      - "charts/**"
+      - 0.36.2
 
 permissions:
-  contents: read
+  id-token: write   # This is required for requesting the JWT
+  contents: read    # This is required for actions/checkout
 
 jobs:
   publish:
     permissions:
+      id-token: write
       contents: write  # for helm/chart-releaser-action to push chart release and create a release
       packages: write  # to push OCI chart package to GitHub Registry
     runs-on: ubuntu-latest
@@ -21,6 +22,20 @@ jobs:
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           fetch-depth: 0
+
+      - name: configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          audience: sts.amazonaws.com
+          role-to-assume: arn:aws:iam::024630551114:role/gh-action-role
+          role-session-name: GitHub_to_AWS_via_FederatedOIDC_ARGO_HELM
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR Public
+        id: login-ecr-public
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          registry-type: public
 
       - name: Install Helm
         uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
@@ -36,26 +51,26 @@ jobs:
           git config user.name "$GITHUB_ACTOR"
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
 
-      ## This is required to consider the old Circle-CI Index and to stay compatible with all the old releases.
-      - name: Fetch current Chart Index
-        run: |
-          git checkout origin/gh-pages index.yaml
+      # ## This is required to consider the old Circle-CI Index and to stay compatible with all the old releases.
+      # - name: Fetch current Chart Index
+      #   run: |
+      #     git checkout origin/gh-pages index.yaml
 
-      # The GitHub repository secret `PGP_PRIVATE_KEY` contains the private key
-      # in ASCII-armored format. To export a (new) key, run this command:
-      # `gpg --armor --export-secret-key <my key>`
-      - name: Prepare PGP key
-        run: |
-          IFS=""
-          echo "$PGP_PRIVATE_KEY" | gpg --dearmor > $HOME/secring.gpg
-          echo "$PGP_PASSPHRASE" > $HOME/passphrase.txt
+      # # The GitHub repository secret `PGP_PRIVATE_KEY` contains the private key
+      # # in ASCII-armored format. To export a (new) key, run this command:
+      # # `gpg --armor --export-secret-key <my key>`
+      # - name: Prepare PGP key
+      #   run: |
+      #     IFS=""
+      #     echo "$PGP_PRIVATE_KEY" | gpg --dearmor > $HOME/secring.gpg
+      #     echo "$PGP_PASSPHRASE" > $HOME/passphrase.txt
 
-          # Tell chart-releaser-action where to find the key and its passphrase
-          echo "CR_KEYRING=$HOME/secring.gpg" >> "$GITHUB_ENV"
-          echo "CR_PASSPHRASE_FILE=$HOME/passphrase.txt" >> "$GITHUB_ENV"
-        env:
-          PGP_PRIVATE_KEY: "${{ secrets.PGP_PRIVATE_KEY }}"
-          PGP_PASSPHRASE: "${{ secrets.PGP_PASSPHRASE }}"
+      #     # Tell chart-releaser-action where to find the key and its passphrase
+      #     echo "CR_KEYRING=$HOME/secring.gpg" >> "$GITHUB_ENV"
+      #     echo "CR_PASSPHRASE_FILE=$HOME/passphrase.txt" >> "$GITHUB_ENV"
+      #   env:
+      #     PGP_PRIVATE_KEY: "${{ secrets.PGP_PRIVATE_KEY }}"
+      #     PGP_PASSPHRASE: "${{ secrets.PGP_PASSPHRASE }}"
 
       - name: Run chart-releaser
         uses: helm/chart-releaser-action@be16258da8010256c6e82849661221415f031968 # v1.5.0
@@ -64,19 +79,23 @@ jobs:
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 
-      - name: Login to GHCR
-        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      # - name: Login to GHCR
+      #   uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+      #   with:
+      #     registry: ghcr.io
+      #     username: ${{ github.actor }}
+      #     password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push chart to GHCR
+        env:
+          REGISTRY: ${{ steps.login-ecr-public.outputs.registry }}
+          REGISTRY_ALIAS: f1l2l1f6
         run: |
           shopt -s nullglob
           for pkg in .cr-release-packages/*.tgz; do
             if [ -z "${pkg:-}" ]; then
               break
             fi
-            helm push "${pkg}" oci://ghcr.io/${{ github.repository }}
+            echo "pushing ${{ github.repository }}/${pkg}"
+            helm push "${pkg}" oci://public.ecr.aws/${REGISTRY_ALIAS}/${{ github.repository }}
           done
