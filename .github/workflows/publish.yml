@@ -23,24 +23,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: configure aws credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          audience: sts.amazonaws.com
-          role-to-assume: arn:aws:iam::024630551114:role/gh-action-role
-          role-session-name: GitHub_to_AWS_via_FederatedOIDC_ARGO_HELM
-          aws-region: us-east-1
-
-      - name: Login to Amazon ECR Public
-        id: login-ecr-public
-        uses: aws-actions/amazon-ecr-login@v2
-        with:
-          registry-type: public
-
-      - name: Install Helm
-        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
-        with:
-          version: v3.10.1 # Also update in lint-and-test.yaml
+      # - name: Install Helm
+      #   uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
+      #   with:
+      #     version: v3.10.1 # Also update in lint-and-test.yaml
 
       - name: Add dependency chart repos
         run: |
@@ -85,6 +71,23 @@ jobs:
       #     registry: ghcr.io
       #     username: ${{ github.actor }}
       #     password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          audience: sts.amazonaws.com
+          role-to-assume: arn:aws:iam::024630551114:role/gh-action-role
+          role-session-name: GitHub_to_AWS_via_FederatedOIDC_ARGO_HELM
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR Public
+        id: login-ecr-public
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          registry-type: public
+        
+      - name: Install Helm
+        uses: azure/setup-helm@v3
 
       - name: Push chart to GHCR
         env:
